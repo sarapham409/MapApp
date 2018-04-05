@@ -2,6 +2,7 @@ package com.sarapham.mapapp;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.InputType;
@@ -18,9 +19,30 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
+    String requestURL;
+    JSONObject response;
+    JSONArray results;
+    JSONObject geometry;
+    JSONObject location;
+
+    String respLat;
+    String respLong;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,20 +124,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             titleField.setHint("Title");
 
             final EditText latField = new EditText(MapsActivity.this);
-            latField.setHint("Latitude");
-            latField.setInputType(InputType.TYPE_CLASS_NUMBER
-                    | InputType.TYPE_NUMBER_FLAG_DECIMAL
-                    | InputType.TYPE_NUMBER_FLAG_SIGNED);
+            latField.setHint("Address");
+            //latField.setInputType(InputType.TYPE_CLASS_NUMBER
+            //        | InputType.TYPE_NUMBER_FLAG_DECIMAL
+            //        | InputType.TYPE_NUMBER_FLAG_SIGNED);
 
-            final EditText lonField = new EditText(MapsActivity.this);
-            lonField.setHint("Longitude");
-            lonField.setInputType(InputType.TYPE_CLASS_NUMBER
-                    | InputType.TYPE_NUMBER_FLAG_DECIMAL
-                    | InputType.TYPE_NUMBER_FLAG_SIGNED);
 
             layout.addView(titleField);
             layout.addView(latField);
-            layout.addView(lonField);
 
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
             builder.setTitle("Add Marker");
@@ -129,31 +145,46 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     Double lat = null, lon = null;
 
                     String strLat = latField.getText().toString();
-                    String strLon = lonField.getText().toString();
                     String strTitle = titleField.getText().toString();
 
-                    try{
-                        lat = Double.parseDouble(strLat);
-                    }catch (NumberFormatException ex){
-                        parsable = false;
-                        Toast.makeText(MapsActivity.this,
-                                "Latitude does not contain a parsable double",
-                                Toast.LENGTH_LONG).show();
+                    //this is where all the magic is gonna happen
+                    //key: AIzaSyADaSJfPtEY9UeK2I_TsVSk9OEvDOx9iig
+                    //example call: https://maps.googleapis.com/maps/api/geocode/json?address=Dallas,+TX&key=AIzaSyADaSJfPtEY9UeK2I_TsVSk9OEvDOx9iig
+
+                    String call1 = "https://maps.googleapis.com/maps/api/geocode/json?address=";
+                    String call2 = "";
+                    String call3 = "&key=AIzaSyADaSJfPtEY9UeK2I_TsVSk9OEvDOx9iig";
+
+                    String[] split = strLat.split(" ");
+
+                    int i;
+                    for(i = 0; i < split.length; i++) {
+                        call2 = call2 + split[i];
+                        call2 = call2 + "+";
                     }
 
-                    try{
-                        lon = Double.parseDouble(strLon);
-                    }catch (NumberFormatException ex){
-                        parsable = false;
-                        Toast.makeText(MapsActivity.this,
-                                "Longitude does not contain a parsable double",
-                                Toast.LENGTH_LONG).show();
+                    requestURL = call1 + call2 + call3;
+                    try {
+                        String strResponse = new GetUrlContentTask().execute(requestURL).get();
+                        extractVars(strResponse);
                     }
+                    catch(Exception e) {
+                        //((EditText)findViewById(R.id.temp)).setText("lol sike, no.");
+                        parsable = false;
+                    }
+
+
+
+                    //update lat and lon manually after the call to the API
+                    lat = Double.parseDouble(respLat);
+                    lon = Double.parseDouble(respLong);
+
+                    strTitle = strTitle + "\n" + lat.toString();
+                    strTitle = strTitle + "\n" + lon.toString();
 
                     if(parsable){
                         LatLng targetLatLng = new LatLng(lat, lon);
-                        MarkerOptions markerOptions =
-                                new MarkerOptions().position(targetLatLng).title(strTitle);
+                        MarkerOptions markerOptions = new MarkerOptions().position(targetLatLng).title(strTitle);
                         mMap.addMarker(markerOptions);
                         mMap.moveCamera(CameraUpdateFactory.newLatLng(targetLatLng));
                     }
@@ -166,4 +197,50 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             Toast.makeText(MapsActivity.this, "Map not ready", Toast.LENGTH_LONG).show();
         }
     }
+
+
+    private class GetUrlContentTask extends AsyncTask<String, Integer, String> {
+        protected String doInBackground(String... urls) {
+            String content = "";
+            try {
+                URL url = new URL(urls[0]);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+
+                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String inLine;
+                StringBuilder response = new StringBuilder();
+
+                while((inLine = in.readLine()) != null) {
+
+                    response.append(inLine);
+                }
+                return response.toString();
+            } catch (ProtocolException e) {
+                e.printStackTrace();
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return content;
+        }
+    }
+
+
+    public void extractVars(String resp) {
+        try {
+            response = new JSONObject(resp);
+            results = response.getJSONArray("results");
+            geometry = results.getJSONObject(0).getJSONObject("geometry");
+            location = geometry.getJSONObject("location");
+            respLat = location.getString("lat").toString();
+            respLong = location.getString("lng").toString();
+        } catch (JSONException e) {
+            //nada
+        }
+    }
+
 }
