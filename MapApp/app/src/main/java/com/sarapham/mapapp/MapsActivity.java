@@ -42,9 +42,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     JSONArray results;
     JSONObject geometry;
     JSONObject location;
+    JSONArray addycomp;
+    JSONObject adco;
 
     String respLat;
     String respLong;
+    String respZip;
+    boolean zipExists = false;
 
 
 
@@ -196,14 +200,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     if(parsable){
                         LatLng targetLatLng = new LatLng(lat, lon);
-                        MarkerOptions markerOptions = new MarkerOptions().position(targetLatLng).title(strTitle).snippet("Latitude: " + r1 + " Longitude: " + r2);
+                        MarkerOptions markerOptions;
 
-
-
-                        //marker should be messed with here before it's added
+                        if(!zipExists) {
+                            MarkerOptions markerOptions1 = new MarkerOptions().position(targetLatLng).title(strTitle).snippet("Latitude: " + r1 + " Longitude: " + r2);
+                            markerOptions = markerOptions1;
+                        } else {
+                            MarkerOptions markerOptions2 = new MarkerOptions().position(targetLatLng).title(strTitle).snippet("Latitude: " + r1 + " Longitude: " + r2 + " Zip: " + respZip);
+                            markerOptions = markerOptions2;
+                        }
 
 
                         mMap.addMarker(markerOptions);
+
                         mMap.moveCamera(CameraUpdateFactory.newLatLng(targetLatLng));
                     }
                 }
@@ -252,6 +261,23 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         try {
             response = new JSONObject(resp);
             results = response.getJSONArray("results");
+
+            addycomp = results.getJSONObject(0).getJSONArray("address_components");
+
+            int i;
+            int zipIndex = 0;
+            for(i = 0; i < addycomp.length(); i++) {
+                if(addycomp.getJSONObject(i).getJSONArray("types").getString(0).equals("postal_code")) {
+                    zipExists = true;
+                    zipIndex = i;
+                    break;
+                }
+            }
+            if(zipExists) {
+                respZip = addycomp.getJSONObject(zipIndex).getString("long_name");
+            }
+
+
             geometry = results.getJSONObject(0).getJSONObject("geometry");
             location = geometry.getJSONObject("location");
             respLat = location.getString("lat").toString();
