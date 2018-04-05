@@ -8,6 +8,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.InputType;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -26,10 +27,12 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.text.DecimalFormat;
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -42,6 +45,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     String respLat;
     String respLong;
+
 
 
     @Override
@@ -179,12 +183,26 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     lat = Double.parseDouble(respLat);
                     lon = Double.parseDouble(respLong);
 
-                    strTitle = strTitle + "\n" + lat.toString();
-                    strTitle = strTitle + "\n" + lon.toString();
+                    DecimalFormat df = new DecimalFormat("##.####");
+
+                    df.setRoundingMode(RoundingMode.FLOOR);
+
+                    double r1 = new Double(df.format(lat));
+                    double r2 = new Double(df.format(lon));
+
+
+                    //strTitle = strTitle + "\n" + lat.toString();
+                    //rstrTitle = strTitle + "\n" + lon.toString();
 
                     if(parsable){
                         LatLng targetLatLng = new LatLng(lat, lon);
-                        MarkerOptions markerOptions = new MarkerOptions().position(targetLatLng).title(strTitle);
+                        MarkerOptions markerOptions = new MarkerOptions().position(targetLatLng).title(strTitle).snippet("Latitude: " + r1 + " Longitude: " + r2);
+
+
+
+                        //marker should be messed with here before it's added
+
+
                         mMap.addMarker(markerOptions);
                         mMap.moveCamera(CameraUpdateFactory.newLatLng(targetLatLng));
                     }
